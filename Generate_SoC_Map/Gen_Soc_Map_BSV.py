@@ -45,7 +45,7 @@ def main (argv = None):
     #----------------
     # Generate output text
 
-    lines = construct_output (constants, regions)
+    lines = construct_output (in_filename, constants, regions)
 
     #----------------
     # Write output text to output file
@@ -103,7 +103,7 @@ def read_input_file (f_in):
 # contruct_output ()
 # Returns a list of lines (strings without linebreaks)
 
-def construct_output (constants, regions):
+def construct_output (in_filename, constants, regions):
 
     lines = [
         "// THIS IS A PROGRAM-GENERATED FILE; DO NOT EDIT!",
@@ -185,6 +185,8 @@ def construct_output (constants, regions):
         "// The address map module",
         "",
         "module mkSoC_Map (SoC_Map_IFC);",
+        "",
+        '   messageM ("\\nINFO: SoC Map generated from spec file: {:s}");'.format (in_filename),
         ""])
 
     # ----------------------------------------------------------------
