@@ -11,7 +11,8 @@ def main (argv = None):
     if ("--help" in argv) or ("-h" in argv) or (len (argv) != 3) :
         sys.stdout.write ("Usage:  {:s}  <in_file>  <out_file>\n".format (argv [0]))
         sys.stdout.write ("    <in_file>    SoC Map, usually .txt\n")
-        sys.stdout.write ("    <out_file>   BSV file, usually .bsv\n")
+        sys.stdout.write ("    <out_file>   BSV file when extension is .bsv\n")
+        sys.stdout.write ("                 C file when extension is .h or .c\n")
         return 0
 
     in_filename = argv [1]
@@ -45,7 +46,13 @@ def main (argv = None):
     #----------------
     # Generate output text
 
-    lines = construct_output (in_filename, constants, regions)
+    if out_filename.endswith (".bsv"):
+        lines = construct_output_BSV (in_filename, constants, regions)
+    elif (out_filename.endswith (".h") or out_filename.endswith (".c")):
+        lines = construct_output_C (in_filename, constants, regions)
+    else:
+        sys.stdout.write ("  ERROR: unknown file extension: {:s}\n".format (out_filename))
+        return 1
 
     #----------------
     # Write output text to output file
@@ -100,10 +107,10 @@ def read_input_file (f_in):
     return (constants, regions)
 
 # ================================================================
-# contruct_output ()
+# construct_output_BSV ()
 # Returns a list of lines (strings without linebreaks)
 
-def construct_output (in_filename, constants, regions):
+def construct_output_BSV (in_filename, constants, regions):
 
     lines = [
         "// THIS IS A PROGRAM-GENERATED FILE; DO NOT EDIT!",
@@ -282,6 +289,46 @@ def construct_output (in_filename, constants, regions):
         "// ================================================================",
         "",
         "endpackage"])
+
+    return lines
+
+# ================================================================
+# construct_output_C ()
+# Construct output lines for a .h file
+# Returns a list of lines (strings without linebreaks)
+
+def construct_output_C (in_filename, constants, regions):
+
+    lines = [
+        "// THIS IS A PROGRAM-GENERATED FILE; DO NOT EDIT!",
+        "// See: https://github.com/rsnikhil/Misc_Utilities    /Generate_SoC_Map",
+        "// SoC Map generated from spec file: {:s}".format (in_filename),
+        "",
+        "#pragma once",
+        "",
+    ]
+
+    lines.extend ([
+        "// ----------------------------------------------------------------",
+        "// Constants",
+        ""])
+    for c in constants:
+        lines.extend ([
+            "#define  {:s} = 0x{:08x}LL;".format (c ["name"], c ["val"])
+        ]);
+
+    lines.extend ([
+        "// ----------------------------------------------------------------",
+        "// Address regions",
+        ""])
+    for r in regions:
+        lines.extend ([
+            "// ---------------- {:s} region".format (r ["type"]),
+            "#define  {:s}_addr_base = 0x{:08x};".format (r ["name"], r ["base"]),
+            "#define  {:s}_addr_size = 0x{:08x};".format (r ["name"], r ["size"]),
+            "#define  {:s}_addr_lim  = ({:s}_addr_base + {:s}_addr_size);"
+            .format (r ["name"], r ["name"], r ["name"]),
+        ])
 
     return lines
 

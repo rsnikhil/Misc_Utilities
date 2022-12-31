@@ -16,15 +16,18 @@ See 'Soc_Map_Spec_Catamaran.txt' for an example.
 Then, use a generator to generate code in a particular language for
 this SoC Map:
 
-    $ ./Gen_Soc_Map_BSV.py    --help
-    $ ./Gen_Soc_Map_BSV.py    <spec file (input)>    <code file (output)>
+    $ ./Gen_Soc_Map.py    --help
+    $ ./Gen_Soc_Map.py    <spec file (input)>    <code file (output)>
 
-[Currently there is only one generator, for BSV code]
+Output code file is for language
+    BSV    if output filename's extension is .bsv
+    C      if output filename's extension is .h or .c
 
 // ================
 Example:
 
-    $ ./Gen_Soc_Map_BSV.py    SoC_Map_Spec_Catamaran.txt  SoC_Map_Catamaran.bsv
+    $ ./Gen_Soc_Map.py    SoC_Map_Spec_Catamaran.txt  SoC_Map_Catamaran.bsv
+    $ ./Gen_Soc_Map.py    SoC_Map_Spec_Catamaran.txt  SoC_Map_Catamaran.h
 
 The Catamaran Spec is used in:
     Bluespec Flute RISC-V CPU
