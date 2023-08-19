@@ -1,0 +1,12 @@
+ff010113          	addi	sp,sp,-16
+00000593          	li	a1,0
+00813023          	sd	s0,0(sp)
+00113423          	sd	ra,8(sp)
+00050413          	mv	s0,a0
+4ed000ef          	jal	ra,80002de8 <__call_exitprocs>
+7501b503          	ld	a0,1872(gp) # 80007c20 <_global_impure_ptr>
+05853783          	ld	a5,88(a0)
+00078463          	beqz	a5,80002110 <exit+0x28>
+000780e7          	jalr	a5
+00040513          	mv	a0,s0
+361030ef          	jal	ra,80005c74 <_exit>
