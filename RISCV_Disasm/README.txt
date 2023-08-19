@@ -3,6 +3,10 @@ instructions, expressed in hex.
 
 Example usage:
 
+    $ Disasm.py --help
+    ... prints help ...
+
+
     $ Disasm.py ff010113
     Default RV64
     L1: ff01_0113  ADDI sp(x2) := sp(x2), ff0    (class_ALU_I)
