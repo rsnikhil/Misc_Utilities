@@ -7,6 +7,7 @@
 # TODO (2020-10-07):
 #  - Command-line args to restrict ISA options
 
+import os
 import sys
 import fileinput
 
@@ -52,13 +53,21 @@ def main (argv = None):
             sys.stdout.write ("INFO: RV128\n")
         else:
             try:
-                instr = int (arg, 16)    # will raise exception if not parseable as a hex number
-                process_line ("Command-line arg", xlen, arg)
+                instr = int (arg, 16)  # raises exception if not parsed as hex number
+                isNumber = True
             except:
+                isNumber = False
+
+            if isNumber:
+                process_line ("Command-line arg", xlen, arg)
+            elif os.path.exists (arg):
                 process_pre (arg)
                 for line in fileinput.input (arg):
                     process_line (arg, xlen, line)
                 process_post (arg)
+            else:
+                sys.stderr.write ("ERROR: file '{:s}' does not exist?\n".format (arg))
+                sys.exit (1)
     return 0
 
 # ================================================================
@@ -92,7 +101,8 @@ def process_line (filename, xlen, line):
 
 def process_post (filename):
     global num_input_lines
-    sys.stdout.write ("File end: '{:s}'  line count {:d}\n".format (filename, num_input_lines))
+    sys.stdout.write ("File end: '{:s}'  line count {:d}\n"
+                      .format (filename, num_input_lines))
 
 # ================================================================
 # For non-interactive invocations, call main() and use its return value

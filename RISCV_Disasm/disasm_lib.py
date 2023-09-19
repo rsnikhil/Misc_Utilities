@@ -768,7 +768,7 @@ def disasm_16b_instr (xlen, instr):
             elif (nzuimm5 == 1) and (rs1 != 0) and (rs2 == 0):
                 s += "C.JALR"
             elif (nzuimm5 == 1) and (rs2 != 0):
-                s += "C.ADD " + r_s(rd) + " := " + r_s(rs1) + ", " + r_s(rs_2)
+                s += "C.ADD " + r_s(rd) + " := " + r_s(rs1) + ", " + r_s(rs2)
                 if (rd == 0): s += "  (HINT)"
             else:
                 s += "<UNKNOWN>"
