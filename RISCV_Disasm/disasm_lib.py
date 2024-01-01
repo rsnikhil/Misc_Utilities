@@ -121,7 +121,7 @@ def disasm_32b_instr (xlen, instr):
         elif (funct3 == 0b_011): size_s = "D"
         else:                    size_s = "<UNKNOWN>"
 
-        s += "S" + size_s + " MEM [" + r_s(rs1) + " + " + x_s(imm12) + "] := " + r_s (rs2)
+        s += "S" + size_s + " MEM [" + r_s(rs1) + " + " + x_s(immS) + "] := " + r_s (rs2)
         s += "    (class_STORE)"
 
     # ---- ALU Imm
