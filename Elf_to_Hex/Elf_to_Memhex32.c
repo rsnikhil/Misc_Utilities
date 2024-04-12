@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <gelf.h>
 
 // ================================================================
@@ -107,6 +108,76 @@ uint64_t fn_vaddr_to_paddr (Elf *e, uint64_t vaddr, uint64_t size)
 }
 
 // ================================================================
+// Store-buffer
+// scan_elf() emits as stream of (addr, byte) into this store-buffer.
+// It buffers up to four bytes, 4-byte aligned
+// It writes out the buffer when addr is for a different word than buf_addr.
+
+static int64_t   last_addr_written = -8;
+static int64_t   buf_addr = -8;
+static uint32_t  buf_data;
+static uint8_t  *p = NULL;
+
+static
+void emit (FILE *fp_out, int64_t addr, uint8_t byte)
+{
+    p = (uint8_t *) (& buf_data);
+
+    if (addr < buf_addr) {
+	fprintf (stdout, "WARNING: addr %08" PRIx64 " is < last addr %08" PRIx64 "\n",
+		 addr, buf_addr);
+	// exit (1);
+    }
+
+    int64_t addr_aligned = ((addr >> 2) << 2);
+    uint8_t lsbs         = (addr & 0x3);
+
+    if (buf_addr < 0) buf_addr = addr_aligned;    // On first invocation
+
+    if (buf_addr != addr_aligned) {
+	// Write out the buffer
+	// Write out addr line if needed
+	if ((last_addr_written + 4) != buf_addr) {
+	    fprintf (fp_out, "@%0" PRIx64 "    // ---- %0" PRIx64 "\n",
+		     buf_addr >> 2, buf_addr);
+	}
+	// Write out data
+	// fprintf (fp_out, "%08x\n", buf_data);
+	fprintf (fp_out, "%08x     // %08" PRIx64 "\n", buf_data, buf_addr);
+	last_addr_written = buf_addr;
+
+	buf_addr = addr_aligned;
+	buf_data = 0;
+    }
+
+    if (! (buf_addr == addr_aligned)) {
+	fprintf (stdout, "ERROR: %s: buf_addr:%08" PRIx64 "  addr_aligned %08" PRIx64 "\n",
+		 __FUNCTION__, buf_addr, addr_aligned);
+	assert (buf_addr == addr_aligned);
+    }
+
+    // Merge-in the new byte
+    // fprintf (stdout, "DEBUG: p[%0d] = %02x\n", lsbs, byte);
+    p [lsbs] = byte;
+}
+
+static
+void flush_store_buffer (FILE *fp_out)
+{
+    if (buf_addr >= 0) {
+	// Write out the buffer
+	// Write out addr line if needed
+	if (buf_addr != last_addr_written) {
+	    fprintf (fp_out, "@%0" PRIx64 "    // ---- %0" PRIx64 "\n",
+		     buf_addr >> 2, buf_addr);
+	}
+	// Write out data
+	fprintf (fp_out, "%08x  // %08" PRIx64 "\n", buf_data, buf_addr);
+	last_addr_written = buf_addr;
+    }
+}
+
+// ================================================================
 // Internal function to scan the ELF file and write memhex32
 // Returns true on success, false otherwise.
 
@@ -127,6 +198,7 @@ bool scan_elf (Elf              *e,
     GElf_Shdr shdr;
 
     while ((scn = elf_nextscn (e,scn)) != NULL) {
+
         // get the header information for this section
         gelf_getshdr (scn, & shdr);
 
@@ -178,36 +250,30 @@ bool scan_elf (Elf              *e,
 		uint8_t *buf    = data->d_buf;
 
 		if (shdr.sh_type != SHT_NOBITS) {
-		    // Convert section
+		    // Normal section
 		    if (fp_log != NULL)
 			fprintf (fp_log,
 				 "    Section addr 0x%0" PRIx64 ", size 0x%0" PRIx64 "\n",
 				 addr, size);
 		    if ((addr & 0x3) != 0) {
-			fprintf (fp_log, "ERROR: section addr is not 4-byte aligned\n");
-			exit (1);
+			fprintf (fp_log, "WARNING: section addr is not 4-byte aligned\n");
 		    }
-		    // Write section address and contents
-		    fprintf (fp_out, "@%0" PRIx64 "\n", addr);
-		    for (uint64_t j = 0; j < size; j+= 4) {
-			uint32_t *p = (uint32_t *) & (buf [j]);
-			fprintf (fp_out, "%08x\n", *p);
-		    }
+		    for (uint64_t j = 0; j < size; j++)
+			emit (fp_out, addr + j, buf [j]);
 		}
 		else if ((strcmp (sec_name, ".bss") == 0)
 			 || (strcmp (sec_name, ".sbss") == 0)) {
-		    if (fp_log != NULL)
-			fprintf (fp_log,
-				 "    Section .bss/.sbss: addr %0" PRIx64 ", size %0" PRIx64 "\n",
-				 addr, size);
-		    if ((addr & 0x3) != 0) {
-			fprintf (fp_log, "ERROR: section addr is not 4-byte aligned\n");
-			exit (1);
+		    // Section to be zeroed
+		    if (fp_log != NULL) {
+			fprintf (fp_log, "    Section .bss/.sbss:");
+			fprintf (fp_log, " addr:%0" PRIx64, addr);
+			fprintf (fp_log, " size:%0" PRIx64 "\n", size);
 		    }
-		    // Write section address, and data zeroes
-		    fprintf (fp_out, "@%0" PRIx64 "\n", addr);
+		    if ((addr & 0x3) != 0) {
+			fprintf (fp_log, "WARNING: section addr is not 4-byte aligned\n");
+		    }
 		    for (uint64_t j = 0; j < size; j+= 4) {
-			fprintf (fp_out, "%08x\n", 0);
+			emit (fp_out, addr + j, 0);
 		    }
 		}
 		else {
@@ -216,7 +282,6 @@ bool scan_elf (Elf              *e,
 		}
 	    }
 	}
-
 	// If we find the symbol table, search for symbols of interest
 	else if (shdr.sh_type == SHT_SYMTAB) {
 	    if ((verbosity != 0) && (fp_log != NULL))
@@ -281,6 +346,8 @@ bool scan_elf (Elf              *e,
 		fprintf (fp_log, " ELF section ignored\n");
 	}
     }
+    flush_store_buffer (fp_log);
+
     return RC_OK;
 }
 
